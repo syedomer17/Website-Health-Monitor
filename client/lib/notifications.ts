@@ -54,11 +54,17 @@ export async function sendEmailNotification(
     const transporter = getEmailTransporter();
     if (!transporter) return false;
 
-    const toEmail = process.env.NOTIFICATION_EMAIL || process.env.EMAIL_USER;
-    if (!toEmail) {
-      console.warn("No recipient email configured");
-      return false;
-    }
+    // const toEmail = process.env.NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+    // if (!toEmail) {
+    //   console.warn("No recipient email configured");
+    //   return false;
+    // }
+
+       const toEmail = [
+      "syedomerali2006@gmail.com",
+      "suhailroushan13@gmail.com",
+      "sami@codeforindia.com",
+    ].filter(email => email.includes("@"));
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
