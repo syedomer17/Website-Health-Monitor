@@ -1,7 +1,7 @@
 import { HealthCheckLog } from '@/types/health';
 import { healthStore } from './healthStore';
 import { appendHealthCheckLog } from './fileLogger';
-import { sendNotifications } from './notifications';
+import { sendNotificationsDown, sendNotificationsRecovered } from './notifications';
 
 export async function performHealthCheck(url: string): Promise<HealthCheckLog> {
   const timestamp = new Date().toISOString();
@@ -58,24 +58,33 @@ export async function performHealthCheck(url: string): Promise<HealthCheckLog> {
     // Continue even if file logging fails
   }
 
-  // Send notifications if website is down (only when status changes from healthy to unhealthy)
-  if (!log.isHealthy) {
-    try {
-      const monitoredUrl = healthStore.getMonitoredUrlByUrl(url);
-      if (monitoredUrl && healthStore.shouldSendNotification(url, log.isHealthy)) {
-        const websiteName = monitoredUrl.name || url;
-        // Send notifications in background (don't wait for them)
-        sendNotifications(websiteName, url, log.statusCode, log.timestamp).catch(
-          (error) => console.error('Failed to send notifications:', error)
-        );
+  // Send notifications based on status change (only once per state change)
+  try {
+    const monitoredUrl = healthStore.getMonitoredUrlByUrl(url);
+    if (monitoredUrl) {
+      const websiteName = monitoredUrl.name || url;
+      
+      if (!log.isHealthy) {
+        // Check if we should send "down" notification (healthy -> unhealthy)
+        if (healthStore.shouldSendDownNotification(url, log.isHealthy)) {
+          // Send notifications in background (don't wait for them)
+          sendNotificationsDown(websiteName, url, log.statusCode, log.timestamp).catch(
+            (error) => console.error('Failed to send down notifications:', error)
+          );
+        }
+      } else {
+        // Check if we should send "recovered" notification (unhealthy -> healthy)
+        if (healthStore.shouldSendRecoveredNotification(url, log.isHealthy)) {
+          // Send notifications in background (don't wait for them)
+          sendNotificationsRecovered(websiteName, url, log.statusCode, log.timestamp).catch(
+            (error) => console.error('Failed to send recovered notifications:', error)
+          );
+        }
       }
-    } catch (error) {
-      console.error('Failed to check notification state:', error);
-      // Continue even if notification check fails
     }
-  } else {
-    // Reset notification state when website is healthy again
-    healthStore.resetNotificationState(url);
+  } catch (error) {
+    console.error('Failed to check notification state:', error);
+    // Continue even if notification check fails
   }
 
   return log;

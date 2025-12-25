@@ -43,8 +43,8 @@ const getTwilioClient = () => {
   return twilio(accountSid, authToken);
 };
 
-// Send email notification
-export async function sendEmailNotification(
+// Send email notification for website down
+export async function sendEmailNotificationDown(
   websiteName: string,
   url: string,
   statusCode: number,
@@ -82,7 +82,7 @@ export async function sendEmailNotification(
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email notification sent for ${websiteName}`);
+    console.log(`Email notification (down) sent for ${websiteName}`);
     return true;
   } catch (error) {
     console.error("Failed to send email notification:", error);
@@ -90,8 +90,49 @@ export async function sendEmailNotification(
   }
 }
 
-// Send SMS notification via Twilio
-export async function sendSMSNotification(
+// Send email notification for website recovered
+export async function sendEmailNotificationRecovered(
+  websiteName: string,
+  url: string,
+  statusCode: number,
+  timestamp: string
+): Promise<boolean> {
+  try {
+    const transporter = getEmailTransporter();
+    if (!transporter) return false;
+
+    const toEmail = [
+      "syedomerali2006@gmail.com",
+      "suhailroushan13@gmail.com",
+      "sami@codeforindia.com",
+    ].filter(email => email.includes("@"));
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: toEmail,
+      subject: `✅ Website Recovered: ${websiteName}`,
+      html: `
+        <h2>Website Health Monitor - Recovery Alert</h2>
+        <p><strong>Website Name:</strong> ${websiteName}</p>
+        <p><strong>URL:</strong> ${url}</p>
+        <p><strong>Status Code:</strong> ${statusCode}</p>
+        <p><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</p>
+        <p><strong>Status:</strong> <span style="color: green;">HEALTHY</span></p>
+        <p>The website is now responding with a healthy status code (200 or 201).</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Email notification (recovered) sent for ${websiteName}`);
+    return true;
+  } catch (error) {
+    console.error("Failed to send email notification:", error);
+    return false;
+  }
+}
+
+// Send SMS notification via Twilio for website down
+export async function sendSMSNotificationDown(
   websiteName: string,
   url: string,
   statusCode: number,
@@ -124,7 +165,7 @@ export async function sendSMSNotification(
       )
     );
 
-    console.log(`SMS notification sent for ${websiteName}`);
+    console.log(`SMS notification (down) sent for ${websiteName}`);
     return true;
   } catch (error) {
     console.error("Failed to send SMS notification:", error);
@@ -132,8 +173,44 @@ export async function sendSMSNotification(
   }
 }
 
-// Send both email and SMS notifications
-export async function sendNotifications(
+// Send SMS notification via Twilio for website recovered
+export async function sendSMSNotificationRecovered(
+  websiteName: string,
+  url: string,
+  statusCode: number,
+  timestamp: string
+): Promise<boolean> {
+  try {
+    const client = getTwilioClient();
+    if (!client) return false;
+
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER!;
+    const message = `✅ Website Recovered: ${websiteName}\nURL: ${url}\nStatus Code: ${statusCode}\nTime: ${new Date(
+      timestamp
+    ).toLocaleString()}`;
+
+    const recipients = ["+919618211626", "+919701889473"];
+
+    await Promise.all(
+      recipients.map((to) =>
+        client.messages.create({
+          body: message,
+          from: fromNumber,
+          to,
+        })
+      )
+    );
+
+    console.log(`SMS notification (recovered) sent for ${websiteName}`);
+    return true;
+  } catch (error) {
+    console.error("Failed to send SMS notification:", error);
+    return false;
+  }
+}
+
+// Send both email and SMS notifications for website down
+export async function sendNotificationsDown(
   websiteName: string,
   url: string,
   statusCode: number,
@@ -141,7 +218,21 @@ export async function sendNotifications(
 ): Promise<void> {
   // Send both notifications in parallel
   await Promise.all([
-    sendEmailNotification(websiteName, url, statusCode, timestamp),
-    sendSMSNotification(websiteName, url, statusCode, timestamp),
+    sendEmailNotificationDown(websiteName, url, statusCode, timestamp),
+    sendSMSNotificationDown(websiteName, url, statusCode, timestamp),
+  ]);
+}
+
+// Send both email and SMS notifications for website recovered
+export async function sendNotificationsRecovered(
+  websiteName: string,
+  url: string,
+  statusCode: number,
+  timestamp: string
+): Promise<void> {
+  // Send both notifications in parallel
+  await Promise.all([
+    sendEmailNotificationRecovered(websiteName, url, statusCode, timestamp),
+    sendSMSNotificationRecovered(websiteName, url, statusCode, timestamp),
   ]);
 }

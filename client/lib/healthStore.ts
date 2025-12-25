@@ -76,9 +76,11 @@ class HealthStore {
   }
 
   // Track last notification state to avoid spamming
-  private lastNotificationState: Map<string, boolean> = new Map();
+  // null = no previous state, true = healthy, false = unhealthy
+  private lastNotificationState: Map<string, boolean | null> = new Map();
 
-  shouldSendNotification(url: string, isHealthy: boolean): boolean {
+  // Check if we should send "down" notification (healthy -> unhealthy)
+  shouldSendDownNotification(url: string, isHealthy: boolean): boolean {
     const lastState = this.lastNotificationState.get(url);
     
     // Only send notification when status changes from healthy to unhealthy
@@ -87,8 +89,29 @@ class HealthStore {
       return true;
     }
     
-    // Update state
-    this.lastNotificationState.set(url, isHealthy);
+    // Update state if it's the first check or state hasn't changed
+    if (lastState === null || lastState === isHealthy) {
+      this.lastNotificationState.set(url, isHealthy);
+    }
+    
+    return false;
+  }
+
+  // Check if we should send "recovered" notification (unhealthy -> healthy)
+  shouldSendRecoveredNotification(url: string, isHealthy: boolean): boolean {
+    const lastState = this.lastNotificationState.get(url);
+    
+    // Only send notification when status changes from unhealthy to healthy
+    if (lastState === false && isHealthy) {
+      this.lastNotificationState.set(url, true);
+      return true;
+    }
+    
+    // Update state if it's the first check or state hasn't changed
+    if (lastState === null || lastState === isHealthy) {
+      this.lastNotificationState.set(url, isHealthy);
+    }
+    
     return false;
   }
 
