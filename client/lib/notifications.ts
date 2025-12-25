@@ -1,16 +1,18 @@
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
+import nodemailer from "nodemailer";
+import twilio from "twilio";
 
 // Email configuration
 const getEmailTransporter = () => {
   // You can configure this via environment variables
   const email = process.env.EMAIL_USER;
   const password = process.env.EMAIL_PASSWORD;
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT || '587');
+  const host = process.env.EMAIL_HOST || "smtp.gmail.com";
+  const port = parseInt(process.env.EMAIL_PORT || "587");
 
   if (!email || !password) {
-    console.warn('Email credentials not configured. Email notifications will be disabled.');
+    console.warn(
+      "Email credentials not configured. Email notifications will be disabled."
+    );
     return null;
   }
 
@@ -32,7 +34,9 @@ const getTwilioClient = () => {
   const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (!accountSid || !authToken || !fromNumber) {
-    console.warn('Twilio credentials not configured. SMS notifications will be disabled.');
+    console.warn(
+      "Twilio credentials not configured. SMS notifications will be disabled."
+    );
     return null;
   }
 
@@ -52,7 +56,7 @@ export async function sendEmailNotification(
 
     const toEmail = process.env.NOTIFICATION_EMAIL || process.env.EMAIL_USER;
     if (!toEmail) {
-      console.warn('No recipient email configured');
+      console.warn("No recipient email configured");
       return false;
     }
 
@@ -75,7 +79,7 @@ export async function sendEmailNotification(
     console.log(`Email notification sent for ${websiteName}`);
     return true;
   } catch (error) {
-    console.error('Failed to send email notification:', error);
+    console.error("Failed to send email notification:", error);
     return false;
   }
 }
@@ -91,25 +95,33 @@ export async function sendSMSNotification(
     const client = getTwilioClient();
     if (!client) return false;
 
-    const toNumber = process.env.NOTIFICATION_PHONE;
-    if (!toNumber) {
-      console.warn('No recipient phone number configured');
-      return false;
-    }
+    // const toNumber = process.env.NOTIFICATION_PHONE;
+    // if (!toNumber) {
+    //   console.warn('No recipient phone number configured');
+    //   return false;
+    // }
 
     const fromNumber = process.env.TWILIO_PHONE_NUMBER!;
-    const message = `⚠️ Website Down Alert: ${websiteName}\nURL: ${url}\nStatus Code: ${statusCode}\nTime: ${new Date(timestamp).toLocaleString()}`;
+    const message = `⚠️ Website Down Alert: ${websiteName}\nURL: ${url}\nStatus Code: ${statusCode}\nTime: ${new Date(
+      timestamp
+    ).toLocaleString()}`;
 
-    await client.messages.create({
-      body: message,
-      from: fromNumber,
-      to: toNumber,
-    });
+    const recipients = ["+919618211626", "+919701889473"];
+
+    await Promise.all(
+      recipients.map((to) =>
+        client.messages.create({
+          body: message,
+          from: fromNumber,
+          to,
+        })
+      )
+    );
 
     console.log(`SMS notification sent for ${websiteName}`);
     return true;
   } catch (error) {
-    console.error('Failed to send SMS notification:', error);
+    console.error("Failed to send SMS notification:", error);
     return false;
   }
 }
@@ -127,4 +139,3 @@ export async function sendNotifications(
     sendSMSNotification(websiteName, url, statusCode, timestamp),
   ]);
 }
-
