@@ -1,237 +1,229 @@
 import nodemailer from "nodemailer";
 import twilio from "twilio";
 
-// Email configuration
-const getEmailTransporter = () => {
-  // You can configure this via environment variables
-  const email = process.env.EMAIL_USER;
-  const password = process.env.EMAIL_PASSWORD;
-  const host = process.env.EMAIL_HOST || "smtp.gmail.com";
-  const port = parseInt(process.env.EMAIL_PORT || "587");
+/* =========================
+   EMAIL TRANSPORTER
+========================= */
+async function getEmailTransporter() {
+  const { EMAIL_USER, EMAIL_PASSWORD } = process.env;
 
-  if (!email || !password) {
-    console.warn(
-      "Email credentials not configured. Email notifications will be disabled."
-    );
+  if (!EMAIL_USER || !EMAIL_PASSWORD) {
+    console.warn("❌ EMAIL_USER or EMAIL_PASSWORD missing");
     return null;
   }
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
     auth: {
-      user: email,
-      pass: password,
+      user: EMAIL_USER,
+      pass: EMAIL_PASSWORD, // Gmail App Password ONLY
     },
   });
-};
 
-// Twilio configuration
-const getTwilioClient = () => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+  try {
+    await transporter.verify();
+    console.log("✅ Email transporter verified");
+    return transporter;
+  } catch (err) {
+    console.error("❌ Email transporter failed:", err);
+    return null;
+  }
+}
 
-  if (!accountSid || !authToken || !fromNumber) {
-    console.warn(
-      "Twilio credentials not configured. SMS notifications will be disabled."
-    );
+/* =========================
+   TWILIO CLIENT
+========================= */
+function getTwilioClient() {
+  const {
+    TWILIO_ACCOUNT_SID,
+    TWILIO_AUTH_TOKEN,
+    TWILIO_PHONE_NUMBER,
+  } = process.env;
+
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
+    console.warn("❌ Twilio env vars missing");
     return null;
   }
 
-  return twilio(accountSid, authToken);
-};
+  return twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+}
 
-// Send email notification for website down
+/* =========================
+   EMAIL: WEBSITE DOWN
+========================= */
 export async function sendEmailNotificationDown(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
 ): Promise<boolean> {
+  const transporter = await getEmailTransporter();
+  if (!transporter) return false;
+
+  const recipients = [
+    "syedomerali2006@gmail.com",
+    "suhailroushan13@gmail.com",
+    "sami@codeforindia.com",
+  ];
+
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) return false;
-
-    // const toEmail = process.env.NOTIFICATION_EMAIL || process.env.EMAIL_USER;
-    // if (!toEmail) {
-    //   console.warn("No recipient email configured");
-    //   return false;
-    // }
-
-       const toEmail = [
-      "syedomerali2006@gmail.com",
-      "suhailroushan13@gmail.com",
-      "sami@codeforindia.com",
-    ].filter(email => email.includes("@"));
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: toEmail,
-      subject: `⚠️ Website Down Alert: ${websiteName}`,
+    await transporter.sendMail({
+      from: `"Health Monitor" <${process.env.EMAIL_USER}>`,
+      to: recipients.join(","), // IMPORTANT
+      subject: `⚠️ Website DOWN: ${websiteName}`,
       html: `
-        <h2>Website Health Monitor Alert</h2>
-        <p><strong>Website Name:</strong> ${websiteName}</p>
-        <p><strong>URL:</strong> ${url}</p>
-        <p><strong>Status Code:</strong> ${statusCode}</p>
-        <p><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</p>
-        <p><strong>Status:</strong> <span style="color: red;">UNHEALTHY</span></p>
-        <p>The website is not responding with a healthy status code (200 or 201).</p>
+        <h2>Website Down Alert</h2>
+        <p><b>Website:</b> ${websiteName}</p>
+        <p><b>URL:</b> ${url}</p>
+        <p><b>Status Code:</b> ${statusCode}</p>
+        <p><b>Time:</b> ${new Date(timestamp).toLocaleString()}</p>
+        <p style="color:red;"><b>Status: UNHEALTHY</b></p>
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Email notification (down) sent for ${websiteName}`);
+    console.log("✅ Email (DOWN) sent");
     return true;
-  } catch (error) {
-    console.error("Failed to send email notification:", error);
+  } catch (err: any) {
+    console.error("❌ Email DOWN failed:", err.message, err.response);
     return false;
   }
 }
 
-// Send email notification for website recovered
+/* =========================
+   EMAIL: WEBSITE RECOVERED
+========================= */
 export async function sendEmailNotificationRecovered(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
 ): Promise<boolean> {
+  const transporter = await getEmailTransporter();
+  if (!transporter) return false;
+
+  const recipients = [
+    "syedomerali2006@gmail.com",
+    "suhailroushan13@gmail.com",
+    "sami@codeforindia.com",
+  ];
+
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) return false;
-
-    const toEmail = [
-      "syedomerali2006@gmail.com",
-      "suhailroushan13@gmail.com",
-      "sami@codeforindia.com",
-    ].filter(email => email.includes("@"));
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: toEmail,
-      subject: `✅ Website Recovered: ${websiteName}`,
+    await transporter.sendMail({
+      from: `"Health Monitor" <${process.env.EMAIL_USER}>`,
+      to: recipients.join(","),
+      subject: `✅ Website RECOVERED: ${websiteName}`,
       html: `
-        <h2>Website Health Monitor - Recovery Alert</h2>
-        <p><strong>Website Name:</strong> ${websiteName}</p>
-        <p><strong>URL:</strong> ${url}</p>
-        <p><strong>Status Code:</strong> ${statusCode}</p>
-        <p><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</p>
-        <p><strong>Status:</strong> <span style="color: green;">HEALTHY</span></p>
-        <p>The website is now responding with a healthy status code (200 or 201).</p>
+        <h2>Website Recovered</h2>
+        <p><b>Website:</b> ${websiteName}</p>
+        <p><b>URL:</b> ${url}</p>
+        <p><b>Status Code:</b> ${statusCode}</p>
+        <p><b>Time:</b> ${new Date(timestamp).toLocaleString()}</p>
+        <p style="color:green;"><b>Status: HEALTHY</b></p>
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Email notification (recovered) sent for ${websiteName}`);
+    console.log("✅ Email (RECOVERED) sent");
     return true;
-  } catch (error) {
-    console.error("Failed to send email notification:", error);
+  } catch (err: any) {
+    console.error("❌ Email RECOVERED failed:", err.message, err.response);
     return false;
   }
 }
 
-// Send SMS notification via Twilio for website down
+/* =========================
+   SMS: WEBSITE DOWN
+========================= */
 export async function sendSMSNotificationDown(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
 ): Promise<boolean> {
+  const client = getTwilioClient();
+  if (!client) return false;
+
+  const from = process.env.TWILIO_PHONE_NUMBER!;
+  const recipients = ["+919618211626", "+919701889473"];
+
   try {
-    const client = getTwilioClient();
-    if (!client) return false;
+    for (const to of recipients) {
+      const res = await client.messages.create({
+        from,
+        to,
+        body: `⚠️ WEBSITE DOWN
+${websiteName}
+${url}
+Status: ${statusCode}
+Time: ${new Date(timestamp).toLocaleString()}`,
+      });
 
-    // const toNumber = process.env.NOTIFICATION_PHONE;
-    // if (!toNumber) {
-    //   console.warn('No recipient phone number configured');
-    //   return false;
-    // }
-
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER!;
-    const message = `⚠️ Website Down Alert: ${websiteName}\nURL: ${url}\nStatus Code: ${statusCode}\nTime: ${new Date(
-      timestamp
-    ).toLocaleString()}`;
-
-    const recipients = ["+919618211626", "+919701889473"];
-
-    await Promise.all(
-      recipients.map((to) =>
-        client.messages.create({
-          body: message,
-          from: fromNumber,
-          to,
-        })
-      )
-    );
-
-    console.log(`SMS notification (down) sent for ${websiteName}`);
+      console.log("✅ SMS sent:", res.sid);
+    }
     return true;
-  } catch (error) {
-    console.error("Failed to send SMS notification:", error);
+  } catch (err: any) {
+    console.error("❌ SMS DOWN failed:", err.code, err.message);
     return false;
   }
 }
 
-// Send SMS notification via Twilio for website recovered
+/* =========================
+   SMS: WEBSITE RECOVERED
+========================= */
 export async function sendSMSNotificationRecovered(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
 ): Promise<boolean> {
+  const client = getTwilioClient();
+  if (!client) return false;
+
+  const from = process.env.TWILIO_PHONE_NUMBER!;
+  const recipients = ["+919618211626", "+919701889473"];
+
   try {
-    const client = getTwilioClient();
-    if (!client) return false;
+    for (const to of recipients) {
+      const res = await client.messages.create({
+        from,
+        to,
+        body: `✅ WEBSITE RECOVERED
+${websiteName}
+${url}
+Status: ${statusCode}
+Time: ${new Date(timestamp).toLocaleString()}`,
+      });
 
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER!;
-    const message = `✅ Website Recovered: ${websiteName}\nURL: ${url}\nStatus Code: ${statusCode}\nTime: ${new Date(
-      timestamp
-    ).toLocaleString()}`;
-
-    const recipients = ["+919618211626", "+919701889473"];
-
-    await Promise.all(
-      recipients.map((to) =>
-        client.messages.create({
-          body: message,
-          from: fromNumber,
-          to,
-        })
-      )
-    );
-
-    console.log(`SMS notification (recovered) sent for ${websiteName}`);
+      console.log("✅ SMS sent:", res.sid);
+    }
     return true;
-  } catch (error) {
-    console.error("Failed to send SMS notification:", error);
+  } catch (err: any) {
+    console.error("❌ SMS RECOVERED failed:", err.code, err.message);
     return false;
   }
 }
 
-// Send both email and SMS notifications for website down
+/* =========================
+   COMBINED HELPERS
+========================= */
 export async function sendNotificationsDown(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
-): Promise<void> {
-  // Send both notifications in parallel
-  await Promise.all([
+) {
+  await Promise.allSettled([
     sendEmailNotificationDown(websiteName, url, statusCode, timestamp),
     sendSMSNotificationDown(websiteName, url, statusCode, timestamp),
   ]);
 }
 
-// Send both email and SMS notifications for website recovered
 export async function sendNotificationsRecovered(
   websiteName: string,
   url: string,
   statusCode: number,
   timestamp: string
-): Promise<void> {
-  // Send both notifications in parallel
-  await Promise.all([
+) {
+  await Promise.allSettled([
     sendEmailNotificationRecovered(websiteName, url, statusCode, timestamp),
     sendSMSNotificationRecovered(websiteName, url, statusCode, timestamp),
   ]);
